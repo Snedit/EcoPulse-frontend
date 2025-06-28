@@ -18,6 +18,8 @@ import InterfaceListPage from './pages/InterfaceListPage';
 import NotFound from './pages/NotFound';
 import InterfaceDetailsPage from './pages/InterfaceDetailsPage'; 
 import InterfaceSetup from './pages/InterfaceSetup';
+import Tracking from './pages/Tracking';
+import TrackingMap from './pages/TrackingMap';
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   
@@ -64,6 +66,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DeviceListPage/>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/trace" 
+              element={
+                <ProtectedRoute>
+                  <Tracking/>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/trace/:interfaceId" 
+              element={
+                <ProtectedRoute>
+                  <TrackingMap/>
                 </ProtectedRoute>
               } 
             />

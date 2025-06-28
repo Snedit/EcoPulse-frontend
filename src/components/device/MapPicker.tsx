@@ -1,37 +1,50 @@
-// components/MapPicker.tsx
-import { useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
+// src/components/device/MapPicker.tsx
 
-function LocationMarker({ onSelect }: { onSelect: (latlng: string) => void }) {
-  const [position, setPosition] = useState<L.LatLng | null>(null);
+import { useCallback, useState } from 'react';
+import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
 
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-      onSelect(`${e.latlng.lat}, ${e.latlng.lng}`);
-    },
+const mapContainerStyle = {
+  width: '100%',
+  height: '300px',
+};
+
+const defaultCenter = {
+  lat: 22.5726,
+  lng: 88.3639,
+};
+
+type Props = {
+  onSelect: (latlng: string) => void;
+};
+
+export default function MapPicker({ onSelect }: Props) {
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, // Make sure this exists in .env
   });
 
-  return position ? <Marker position={position} /> : null;
-}
+  const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(null);
 
-export default function MapPicker({
-  onSelect,
-  defaultLocation = [22.5726, 88.3639], // Kolkata default
-}: {
-  onSelect: (latlng: string) => void;
-  defaultLocation?: [number, number];
-}) {
+  const handleClick = useCallback((e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      setMarker({ lat, lng });
+      onSelect(`${lat}, ${lng}`);
+    }
+  }, [onSelect]);
+
+  if (!isLoaded) return <div className="text-gray-500">Loading map...</div>;
+
   return (
-    <div className="h-64 rounded overflow-hidden">
-      <MapContainer center={defaultLocation} zoom={13} style={{ height: '100%' }}>
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <LocationMarker onSelect={onSelect} />
-      </MapContainer>
+    <div className="border rounded overflow-hidden">
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={marker ?? defaultCenter}
+        zoom={14}
+        onClick={handleClick}
+      >
+        {marker && <Marker position={marker} />}
+      </GoogleMap>
     </div>
   );
 }

@@ -12,7 +12,8 @@ import {
   X, 
   CircleFadingPlus,
   Bell, 
-  LogOut 
+  LogOut, 
+  Triangle
 } from 'lucide-react';
 
 
@@ -36,6 +37,7 @@ export default function Sidebar() {
     { name: 'Waste Bins', path: '/waste-bins', icon: <Trash2 className="w-5 h-5" /> },
     { name: 'Add Device', path: '/device/setup', icon: <PlusCircle className="w-5 h-5" /> },
     { name: 'Add Interface', path: '/interface/setup', icon: <CircleFadingPlus className="w-5 h-5" /> },
+    { name: 'Trace the mystery', path: '/trace', icon: <Triangle className="w-5 h-5" /> },
   ];
 
   const isActive = (path: string) => {
