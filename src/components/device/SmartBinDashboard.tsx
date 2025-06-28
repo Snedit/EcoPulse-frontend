@@ -22,42 +22,39 @@ export default function SmartBinDashboard({ device }: any) {
 
 useEffect(() => {
   const token = localStorage.getItem('eco_monitor_user_jwt');
+  // Use EventSourcePolyfill for SSE with Authorization header
+  const sse = new EventSourcePolyfill(
+    `http://localhost:8000/api/device/${device.data.id}/stream`,
+    {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  );
 
-  const fetchLiveData = async () => {
+  sse.addEventListener('device-live', (event: MessageEvent) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/device/${device.data.id}/stream`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const parsed = JSON.parse(event.data);
+      console.log('SSE data received:', parsed);
+      if (!parsed || !parsed.deviceId || !parsed.timestamp) return;
 
-      const parsed = await res.json();
+      const timestamp = new Date(parsed.timestamp).toLocaleTimeString();
 
-      if (!parsed.success || !parsed.data) return;
-
-      const timestamp = new Date(parsed.data.timestamp * 1000).toLocaleTimeString();
-
-      setLiveData((prev) => {
+      setLiveData(prev => {
         const newPoint = {
           time: timestamp,
-          value1: parsed.data.lastValue1 ?? 0,
-          value2: parsed.data.lastValue2 ?? 0
+          value1: Number(parsed.value1) ?? 0,
+          value2: Number(parsed.value2) ?? 0
         };
-
         return [...prev.slice(-9), newPoint];
       });
-
     } catch (err) {
-      console.error('Polling error:', err);
+      console.error('SSE parse error:', err);
     }
+  });
+
+  return () => {
+    sse.close();
   };
-
-  const interval = setInterval(fetchLiveData, 5000); // poll every 5s
-  fetchLiveData(); // initial call
-
-  return () => clearInterval(interval);
-// }, [device.data.id]);
-}, []);
+}, [device.data.id]);
 
   const handleDelete = async () => {
     const confirm = window.confirm(`Are you sure you want to delete ${device.name}?`);
@@ -94,11 +91,11 @@ useEffect(() => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 bg-green-800 rounded-md shadow-md">
           <p className="text-sm text-green-200">Biodegradable Waste</p>
-          <p className="text-2xl font-bold">{device.lastValue1 ?? '--'}%</p>
+          <p className="text-2xl font-bold">{liveData.length > 0 ? liveData[liveData.length - 1].value1 : '--'}%</p>
         </div>
         <div className="p-4 bg-blue-800 rounded-md shadow-md">
           <p className="text-sm text-blue-200">Non-Biodegradable Waste</p>
-          <p className="text-2xl font-bold">{device.lastValue2 ?? '--'}%</p>
+          <p className="text-2xl font-bold">{liveData.length > 0 ? liveData[liveData.length - 1].value2 : '--'}%</p>
         </div>
       </div>
 
