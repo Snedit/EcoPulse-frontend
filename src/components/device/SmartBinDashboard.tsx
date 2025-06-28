@@ -1,14 +1,63 @@
-// components/device/SmartBinDashboard.tsx
-
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useEffect, useState } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import DeviceStatus from './DeviceStatus';
 import DeviceMetrics from './DeviceMetrics';
 import { Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deviceService } from '../../services/deviceService';
+import { EventSourcePolyfill } from 'event-source-polyfill';
 
 export default function SmartBinDashboard({ device }: any) {
   const navigate = useNavigate();
+  const [liveData, setLiveData] = useState<
+    { time: string; value1: number; value2: number }[]
+  >([]);
+
+useEffect(() => {
+  const token = localStorage.getItem('eco_monitor_user_jwt');
+
+  const fetchLiveData = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/device/${device.data.id}/stream`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const parsed = await res.json();
+
+      if (!parsed.success || !parsed.data) return;
+
+      const timestamp = new Date(parsed.data.timestamp * 1000).toLocaleTimeString();
+
+      setLiveData((prev) => {
+        const newPoint = {
+          time: timestamp,
+          value1: parsed.data.lastValue1 ?? 0,
+          value2: parsed.data.lastValue2 ?? 0
+        };
+
+        return [...prev.slice(-9), newPoint];
+      });
+
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
+  };
+
+  const interval = setInterval(fetchLiveData, 5000); // poll every 5s
+  fetchLiveData(); // initial call
+
+  return () => clearInterval(interval);
+// }, [device.data.id]);
+}, []);
 
   const handleDelete = async () => {
     const confirm = window.confirm(`Are you sure you want to delete ${device.name}?`);
@@ -57,7 +106,7 @@ export default function SmartBinDashboard({ device }: any) {
       <div className="bg-slate-800 p-4 rounded-md">
         <h3 className="text-lg font-semibold mb-2">Waste Levels Over Time</h3>
         <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={mockSmartBinGraphData}>
+          <LineChart data={liveData}>
             <XAxis dataKey="time" stroke="#ccc" />
             <YAxis stroke="#ccc" />
             <Tooltip />
@@ -75,9 +124,3 @@ export default function SmartBinDashboard({ device }: any) {
     </div>
   );
 }
-
-const mockSmartBinGraphData = [
-  { time: '10:00', value1: 30, value2: 45 },
-  { time: '11:00', value1: 35, value2: 50 },
-  { time: '12:00', value1: 60, value2: 70 },
-];

@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 
 import SignUp from './pages/SignUp';
+import 'leaflet/dist/leaflet.css?inline';
+
+
 import VerifyOTP from './pages/VerifyOTP';
 import Dashboard from './pages/Dashboard';
 import DeviceSetup from './pages/DeviceSetup';

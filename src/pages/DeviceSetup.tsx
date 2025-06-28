@@ -4,6 +4,7 @@ import { ArrowLeft, Droplets, Trash2, Dice1 as Device, MapPin, Barcode, Calendar
 import PageLayout from '../components/layout/PageLayout';
 import { deviceService } from '../services/deviceService';
 import { interfaceService, type Interface } from '../services/interfaceService';
+import MapPicker from '../components/device/MapPicker';
 
 type DeviceType = 'WATER_TANK' | "DUSTBIN" | "SMART_BIN" | "OTHER_SENSOR"
 
@@ -266,23 +267,34 @@ useEffect(() => {
                 </div>
                 
                 <div>
-                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Location *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      <MapPin className="w-5 h-5" />
-                    </span>
-                    <input
-                      id="location"
-                      type="text"
-                      className="input pl-10"
-                      placeholder="e.g., Home, Office, Warehouse"
-                      value={formData.location}
-                      onChange={(e) => updateFormData('location', e.target.value)}
-                    />
-                  </div>
-                </div>
+  <label className="block text-sm font-medium mb-2">Location *</label>
+
+  {/* GPS button */}
+  <button
+    onClick={() => {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const latlng = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+        updateFormData('location', latlng);
+      });
+    }}
+    className="btn-outline mb-2"
+  >
+    📍 Use my location
+  </button>
+
+  <MapPicker
+    onSelect={(latlng) => updateFormData('location', latlng)}
+  />
+
+  <input
+    type="text"
+    className="input mt-2"
+    placeholder="Lat, Lng"
+    value={formData.location}
+    readOnly
+  />
+</div>
+
               </div>
               
               <div className="flex justify-between">
