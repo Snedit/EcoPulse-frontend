@@ -1,27 +1,23 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '../services/authService';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Mock auth service for demonstration purposes
+// In a real app, this would connect to a backend API
+
 import axios from 'axios';
-import { userService } from '../services/userService';
+import { delay } from '../utils/helpers';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginResponse {
   success: boolean;
   message: string;
-  data?: {
-    token: string;
-    fullName: string;
-    username: string;
-    email: string;
-  };
+  data?: User;
 }
-
+ 
 interface User{
   email: string,
   fullName: string,
-  username: string,
+    role: string,
   token: string,
-  id: string,
-  createdAt: string
+    
 }
 interface SignUpData {
   username: string;
@@ -37,166 +33,134 @@ data: {
   email: string
 }
 }
+interface otpResponse {
+success: boolean,
+message: string,
+data: {
+  email: string
+}
+}
 
 interface otpFormat{
   email: string,
   otp: string
 }
+// Simulate persistent storage
+const STORAGE_KEY = 'eco_monitor_user_jwt';
 
-interface otpResponse {
-  success: boolean;
-  message: string;
-  // Add other fields as returned by your backend if needed
-}
-
-interface AuthContextType {
-  user: User | null;
-
-  loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
-  loginWithGoogle: (credential:string) => Promise<User>;
-  signUp: (data: SignUpData) => Promise<SignUpResponse>;
-  verifyOTP: (otp: otpFormat) => Promise<otpResponse>;
-  logout: () => Promise<void>;
-  isAuthenticated: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = async () => {
-      try {
-        const userData = await userService.getProfile();
-        setUser(userData); //work needed here
-      } catch (error) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  const login = async (email: string, password: string): Promise<User> => {
-    setLoading(true);
-    try {
-      const userData = await authService.login(email, password);
-      if (userData) {
-           const loginData = await userService.getProfile();
-        setUser(loginData);
-        
-         localStorage.setItem("EcoUser", JSON.stringify(userData));
-        return loginData;
-      }
-      throw new Error("Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loginWithGoogle = async (credential:string) => {
-    setLoading(true);
-    try {
-      const userData = await authService.loginWithGoogle(credential);
-      if(userData.success)
-      {
-const loginData = await userService.getProfile();
-        setUser(loginData);
-         localStorage.setItem("EcoUser", JSON.stringify(userData));
-        return userData;
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-const signUp = async (data: SignUpData): Promise<SignUpResponse | void> => {
-  setLoading(true);
-  try {
-    const response = await axios.post<SignUpResponse>(
-      'http://localhost:8000/api/auth/register',
-      data
-    );
-
-    return Promise.resolve(response.data);
-
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        // Server responded with a non-2xx status code
-        console.error("API error:", error.response.data);
-        return error.response.data as SignUpResponse;
-      } else if (error.request) {
-        // No response received
-        console.error("No response from server");
-        return Promise.reject(
-          {
-            success: false,
-            message: "No response from server",})
-      }
-    }
-
-  } finally {
-    setLoading(false);
-  }
+const saveUserToStorage = (user: User) => {
+  localStorage.setItem(STORAGE_KEY, `${user}`);
 };
 
+const getUserFromStorage = (): string | null => {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : null;
+};
 
-  const verifyOTP = async (otpData: otpFormat) : Promise<otpResponse> => {
-    setLoading(true);
-    try {
-     const response  =  await authService.verifyOTP(otpData);
-     return Promise.resolve(response);
-    }
-    catch(err){
-      return Promise.resolve({
-        success: false,
-        message: "OTP NOT VERIFIED"
-      });
-    }
-    finally {
-      setLoading(false);
-    }
-  };
+const clearUserFromStorage = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem("EcoUser");
+};
 
-  const logout = async () => {
-    setLoading(true);
-    try {
-      await authService.logout();
-      setUser(null);
-    } finally {
-      setLoading(false);
+export const authService = {
+   
+  
+  async  login(email: string, password: string): Promise<User> {
+  try {
+    const response = await axios.post('http://localhost:8000/api/auth/login', {
+      email,
+      password,
+    });
+
+    if (response.data.success && response.data.data) {
+
+       saveUserToStorage(response.data.data.token); // Save only user token
+      return response.data.data;
     }
-  };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        loginWithGoogle,
-        signUp,
-        verifyOTP,
-        logout,
-        isAuthenticated: !!user,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-}
+    return response.data; // If somehow success is false but response is OK
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  } catch (error: any) {
+ 
+      throw new Error("login failed");
+   
+  }},
+
+    
+    // throw new Error('Invalid credentials');
+  
+  
+  async loginWithGoogle( credential: string ): Promise<LoginResponse> {
+ 
+    const response  = await fetch("http://localhost:8000/api/auth/google-login", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${credential}`
+      }
+    });
+    
+    // For testing, Google login also uses admin account
+    const data = await response.json();
+    const user: LoginResponse = {
+      success: data.success,
+      message: data.message,
+      data: data.data
+    };
+    console.log(user);
+saveUserToStorage(data.data.token);
+    
+    // saveUserToStorage(user);
+    return user;
+  },
+
+  async signUp(data: SignUpData): Promise<SignUpResponse> {
+    // Simulate API call delay
+    const {username, fullName, email, password} = data;
+    const response  = await axios.post("http://localhost:8000/api/auth/register", {
+username, fullName, email, password
+    })
+    
+   const {success} = response.data;
+
+    // For demo, always succeed
+    if(!success)
+      return Promise.reject(response.data.message||"could not register");
+else
+    return Promise.resolve(response.data);
+  },
+
+  async verifyOTP(data: otpFormat): Promise<otpResponse> {
+    // Simulate API call delay
+    const {email, otp} = data;
+    alert(`otp is ${otp}`   )
+    if (otp.length !== 6) {
+      throw new Error('Invalid OTP');
+      
+    }
+    const response  = await axios.post("http://localhost:8000/api/auth/register/verify-otp", {
+      email, otp
+    })
+    if(!response.data.success)
+      return Promise.reject(response.data.message||'no msg');
+    
+    return Promise.resolve(response.data);
+  },
+  
+  async logout(): Promise<void> {
+    // Simulate API call delay
+    await delay(500);
+    clearUserFromStorage();
+  },
+  
+  async getCurrentUser(): Promise<User> {
+    // Simulate API call delay
+    const userStr = localStorage.getItem("EcoUser");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return Promise.resolve(user);
+    } else {
+      return Promise.reject("user not logged in");
+    }
   }
-  return context;
 }
